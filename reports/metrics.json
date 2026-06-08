@@ -1,0 +1,127 @@
+{
+  "source": "synthetic",
+  "n_windows": 1512,
+  "best_model": "RandomForest",
+  "feature_names": [
+    "std_mean",
+    "std_max",
+    "std_spread",
+    "range_mean",
+    "range_max",
+    "motion_mean",
+    "motion_max",
+    "jerk_std",
+    "entropy",
+    "subcarrier_corr"
+  ],
+  "models": {
+    "RandomForest": {
+      "macro_f1": 0.8155,
+      "report": {
+        "empty": {
+          "precision": 0.72,
+          "recall": 0.8571428571428571,
+          "f1-score": 0.782608695652174,
+          "support": 63.0
+        },
+        "sit": {
+          "precision": 0.5538461538461539,
+          "recall": 0.5714285714285714,
+          "f1-score": 0.5625,
+          "support": 63.0
+        },
+        "stand": {
+          "precision": 0.6595744680851063,
+          "recall": 0.49206349206349204,
+          "f1-score": 0.5636363636363636,
+          "support": 63.0
+        },
+        "walk": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 63.0
+        },
+        "fall": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 63.0
+        },
+        "breathe": {
+          "precision": 0.9692307692307692,
+          "recall": 1.0,
+          "f1-score": 0.984375,
+          "support": 63.0
+        },
+        "accuracy": 0.8201058201058201,
+        "macro avg": {
+          "precision": 0.8171085651936716,
+          "recall": 0.8201058201058201,
+          "f1-score": 0.8155200098814229,
+          "support": 378.0
+        },
+        "weighted avg": {
+          "precision": 0.8171085651936716,
+          "recall": 0.8201058201058201,
+          "f1-score": 0.815520009881423,
+          "support": 378.0
+        }
+      }
+    },
+    "MLP": {
+      "macro_f1": 0.6658,
+      "report": {
+        "empty": {
+          "precision": 0.5476190476190477,
+          "recall": 0.7301587301587301,
+          "f1-score": 0.6258503401360545,
+          "support": 63.0
+        },
+        "sit": {
+          "precision": 0.28846153846153844,
+          "recall": 0.23809523809523808,
+          "f1-score": 0.2608695652173913,
+          "support": 63.0
+        },
+        "stand": {
+          "precision": 0.4520547945205479,
+          "recall": 0.5238095238095238,
+          "f1-score": 0.4852941176470588,
+          "support": 63.0
+        },
+        "walk": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 63.0
+        },
+        "fall": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 63.0
+        },
+        "breathe": {
+          "precision": 0.7674418604651163,
+          "recall": 0.5238095238095238,
+          "f1-score": 0.6226415094339622,
+          "support": 63.0
+        },
+        "accuracy": 0.6693121693121693,
+        "macro avg": {
+          "precision": 0.6759295401777085,
+          "recall": 0.6693121693121693,
+          "f1-score": 0.6657759220724112,
+          "support": 378.0
+        },
+        "weighted avg": {
+          "precision": 0.6759295401777083,
+          "recall": 0.6693121693121693,
+          "f1-score": 0.6657759220724111,
+          "support": 378.0
+        }
+      }
+    }
+  }
+}

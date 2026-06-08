@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+data/synthetic_csi.npz
+data/replay_stream.csv
+data/raw/*
+!data/raw/.gitkeep
+models/*.joblib
+models/*.pt
+reports/*.png
+.streamlit/secrets.toml
+.DS_Store

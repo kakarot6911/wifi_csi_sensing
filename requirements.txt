@@ -1,0 +1,15 @@
+# Core (required) — the whole pipeline runs with just these.
+numpy
+pandas
+scikit-learn
+joblib
+
+# Dashboard
+streamlit
+
+# Optional — used automatically if present, gracefully skipped if not.
+scipy              # Butterworth / Welch filters (falls back to moving-average/FFT)
+matplotlib         # confusion-matrix & importance plots
+shap               # SHAP explainability (falls back to permutation importance)
+torch              # optional 1D-CNN-LSTM deep model
+pyserial           # live ESP32 capture over USB serial
