@@ -122,7 +122,8 @@ def main(source="synthetic"):
 
     cnn = _maybe_train_cnn(Wtr, ytr, Wte, yte)
     if cnn is not None:
-        results["CNN_LSTM"] = {"macro_f1": round(float(cnn["macro_f1"]), 4)}
+        results["CNN_LSTM"] = {"macro_f1": round(float(cnn["macro_f1"]), 4),
+                               "report": cnn["report"]}
         _confusion("CNN_LSTM", yte, cnn["pred"])
         print(f"   CNN-LSTM macro-F1 = {cnn['macro_f1']:.3f}")
 

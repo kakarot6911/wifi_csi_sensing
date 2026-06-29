@@ -8,7 +8,7 @@ the window — the standard strong architecture for CSI human-activity recogniti
 from __future__ import annotations
 
 import numpy as np
-from sklearn.metrics import f1_score
+from sklearn.metrics import classification_report, f1_score
 
 import torch
 import torch.nn as nn
@@ -26,7 +26,7 @@ class CNNLSTM(nn.Module):
             nn.MaxPool1d(2),
         )
         self.lstm = nn.LSTM(128, 64, batch_first=True, bidirectional=True)
-        self.head = nn.Sequential(nn.Dropout(0.3), nn.Linear(128, n_classes))
+        self.head = nn.Sequential(nn.Dropout(0.5), nn.Linear(128, n_classes))
 
     def forward(self, x):                # x: (B, T, S)
         x = self.conv(x.transpose(1, 2))     # → (B, C, T')
@@ -38,7 +38,8 @@ def train_cnn_lstm(Xtr, ytr, Xte, yte):
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     n_classes = len(config.CLASSES)
     model = CNNLSTM(Xtr.shape[2], n_classes).to(dev)
-    opt = torch.optim.Adam(model.parameters(), lr=config.CNN_PARAMS["lr"])
+    opt = torch.optim.Adam(model.parameters(), lr=config.CNN_PARAMS["lr"],
+                           weight_decay=config.CNN_PARAMS.get("weight_decay", 0.0))
     lossf = nn.CrossEntropyLoss()
 
     Xtr_t = torch.tensor(Xtr, dtype=torch.float32)
@@ -47,16 +48,25 @@ def train_cnn_lstm(Xtr, ytr, Xte, yte):
     dl = torch.utils.data.DataLoader(ds, batch_size=config.CNN_PARAMS["batch_size"],
                                      shuffle=True)
 
+    epochs = config.CNN_PARAMS["epochs"]
     model.train()
-    for epoch in range(config.CNN_PARAMS["epochs"]):
+    for epoch in range(epochs):
+        running = 0.0
         for xb, yb in dl:
             opt.zero_grad()
             loss = lossf(model(xb.to(dev)), yb.to(dev))
             loss.backward(); opt.step()
+            running += loss.item() * xb.size(0)
+        if (epoch + 1) % 5 == 0 or epoch == 0:
+            print(f"      epoch {epoch + 1:>2}/{epochs}  loss={running / len(ds):.4f}")
 
     model.eval()
     with torch.no_grad():
         logits = model(torch.tensor(Xte, dtype=torch.float32).to(dev))
         pred = logits.argmax(1).cpu().numpy()
     torch.save(model.state_dict(), config.TORCH_MODEL_PATH)
-    return {"pred": pred, "macro_f1": f1_score(yte, pred, average="macro")}
+    report = classification_report(
+        yte, pred, labels=range(n_classes),
+        target_names=config.CLASSES, output_dict=True, zero_division=0)
+    return {"pred": pred, "macro_f1": f1_score(yte, pred, average="macro"),
+            "report": report}

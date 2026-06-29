@@ -38,6 +38,21 @@ ESP32 TX ──packets@100Hz──▶ ESP32 RX (esp-csi) ──CSI──▶ host
    dashboard  ─ live prediction · heatmap · bpm · SHAP ◀──┘
 ```
 
+## Results (synthetic, 1,512 windows · 6 classes)
+
+| Model | Input | Macro-F1 | walk / fall / breathe | empty / sit / stand |
+|---|---|--:|---|---|
+| **RandomForest** | engineered features | **0.82** | 1.00 / 1.00 / 0.98 | 0.78 / 0.56 / 0.56 |
+| CNN-LSTM | raw CSI windows | 0.77 | 1.00 / 0.98 / 1.00 | 0.52 / 0.39 / 0.72 |
+| MLP | engineered features | 0.67 | — | — |
+
+The **CNN-LSTM learns the dynamic activities (walk/fall/breathe ≈ 1.0) straight from
+raw CSI** with zero hand-crafted features — the architecture that scales to real
+multi-session captures. On this *small synthetic* set it overfits the near-static
+classes (`empty`/`sit`/`stand`), so the feature-based **RandomForest still wins
+overall**. Deep models are data-hungry; the gap is expected to close with real,
+varied captures. Numbers are pipeline validation, not field performance.
+
 ## Project layout
 ```
 src/

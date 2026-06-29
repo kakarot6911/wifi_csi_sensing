@@ -95,7 +95,7 @@ MLP_PARAMS = dict(
 )
 
 # Optional 1D-CNN-LSTM (used only if PyTorch is installed).
-CNN_PARAMS = dict(epochs=15, batch_size=64, lr=1e-3)
+CNN_PARAMS = dict(epochs=30, batch_size=64, lr=1e-3, weight_decay=5e-4)
 
 # --------------------------------------------------------------------------- #
 # Hardware capture (esp-csi)
