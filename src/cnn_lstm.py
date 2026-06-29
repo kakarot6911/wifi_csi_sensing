@@ -35,6 +35,7 @@ class CNNLSTM(nn.Module):
 
 
 def train_cnn_lstm(Xtr, ytr, Xte, yte):
+    torch.manual_seed(config.RANDOM_STATE)  # reproducible runs
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     n_classes = len(config.CLASSES)
     model = CNNLSTM(Xtr.shape[2], n_classes).to(dev)

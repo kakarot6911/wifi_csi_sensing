@@ -4,8 +4,9 @@ Flow:  load (synthetic|ut_har) → denoise per session → window → features �
        train RandomForest + MLP (sklearn) [+ optional CNN-LSTM if torch] →
        pick best by macro-F1 → save model/scaler/metrics/confusion-matrices.
 
-Run:   python -m src.train                 # synthetic
-       python -m src.train --source ut_har # real public dataset
+Run:   python -m src.train                   # synthetic
+       python -m src.train --source ut_har   # real public dataset
+       python -m src.train --source captured # your own ESP32 captures
 """
 
 from __future__ import annotations
@@ -145,5 +146,6 @@ def main(source="synthetic"):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", default="synthetic", choices=["synthetic", "ut_har"])
+    ap.add_argument("--source", default="synthetic",
+                    choices=["synthetic", "ut_har", "captured"])
     main(ap.parse_args().source)

@@ -65,6 +65,59 @@ def load_ut_har(root=None):
     return X, y, {"source": "ut_har", "n": len(y)}
 
 
+def load_captured(root=None):
+    """Load real ESP32 captures written by ``src.live_capture`` from data/raw/*.csv.
+
+    Each CSV is one recording session (columns: optional ``label`` + ``sc0..scN``
+    amplitude per subcarrier, one row per CSI frame). Labels come from the
+    ``label`` column when present, otherwise from the filename stem
+    (``walk_01.csv`` → ``walk``), matching the UT-HAR convention. Treating each
+    file as a session lets train.py denoise + window within session boundaries.
+    """
+    import pandas as pd
+
+    root = root or config.RAW_DIR
+    files = [f for f in sorted(root.glob("*.csv"))]
+    if not files:
+        raise FileNotFoundError(
+            f"No capture CSVs in {root}. Record some with "
+            "`python -m src.live_capture …` (see firmware/README.md), "
+            "or run on synthetic data instead."
+        )
+
+    amps, raw_labels, sessions = [], [], []
+    for f in files:
+        df = pd.read_csv(f)
+        sc_cols = [c for c in df.columns if c.startswith("sc")]
+        if not sc_cols:
+            continue
+        X = df[sc_cols].to_numpy(dtype=np.float32)
+        if "label" in df.columns:
+            labs = df["label"].astype(str).tolist()
+        else:
+            labs = [f.stem.split("_")[0]] * len(X)
+        amps.append(X)
+        raw_labels.extend(labs)
+        sessions.extend([f.stem] * len(X))
+
+    if not amps:
+        raise FileNotFoundError(f"No sc* amplitude columns found in CSVs under {root}.")
+
+    # pad/resample each session's subcarrier width to NUM_SUBCARRIERS, then stack
+    S = config.NUM_SUBCARRIERS
+    fixed = []
+    for X in amps:
+        if X.shape[1] != S:
+            xp = np.linspace(0, 1, X.shape[1])
+            xq = np.linspace(0, 1, S)
+            X = np.stack([np.interp(xq, xp, row) for row in X]).astype(np.float32)
+        fixed.append(X)
+    X = np.concatenate(fixed).astype(np.float32)
+    y = normalize_labels(raw_labels)
+    return X, y, {"source": "captured", "session": np.array(sessions),
+                  "n": len(y), "n_files": len(files)}
+
+
 def load_synthetic():
     """Load the generated synthetic dataset as (csi, label, info)."""
     if not config.SYNTHETIC_NPZ.exists():
@@ -81,4 +134,7 @@ def load(source: str = "synthetic"):
     if source == "ut_har":
         X, y, info = load_ut_har()
         return X.astype(np.complex64), y, info   # already amplitude → real CSI
+    if source == "captured":
+        X, y, info = load_captured()
+        return X.astype(np.complex64), y, info   # amplitude stored as real CSI
     raise ValueError(f"unknown source: {source!r}")

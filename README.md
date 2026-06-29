@@ -11,6 +11,7 @@ Built to run **three ways** so you can start today and add hardware later:
 | **Synthetic** (default) | `./run.sh` | nothing — physics-based CSI generator |
 | **Public dataset** (UT-HAR) | `./run.sh --source ut_har` | dataset in `data/raw/ut_har/` |
 | **Live ESP32** | `python -m src.live_capture …` | 2× ESP32 + `esp-csi` firmware |
+| **Your captures** | `./run.sh --source captured` | recorded CSVs in `data/raw/` |
 
 ## Capabilities (tiered)
 - **Tier 1 — Presence:** empty vs occupied
@@ -43,7 +44,7 @@ ESP32 TX ──packets@100Hz──▶ ESP32 RX (esp-csi) ──CSI──▶ host
 | Model | Input | Macro-F1 | walk / fall / breathe | empty / sit / stand |
 |---|---|--:|---|---|
 | **RandomForest** | engineered features | **0.82** | 1.00 / 1.00 / 0.98 | 0.78 / 0.56 / 0.56 |
-| CNN-LSTM | raw CSI windows | 0.77 | 1.00 / 0.98 / 1.00 | 0.52 / 0.39 / 0.72 |
+| CNN-LSTM | raw CSI windows | 0.76 | 1.00 / 1.00 / 0.99 | 0.47 / 0.42 / 0.69 |
 | MLP | engineered features | 0.67 | — | — |
 
 The **CNN-LSTM learns the dynamic activities (walk/fall/breathe ≈ 1.0) straight from
