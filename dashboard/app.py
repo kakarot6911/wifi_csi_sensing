@@ -82,7 +82,20 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .grid { display:grid; gap:1rem; }
 .g3 { grid-template-columns:repeat(3,1fr); }
 .g2 { grid-template-columns:repeat(2,1fr); }
-@media (max-width:820px){ .g3,.g2{ grid-template-columns:1fr; } }
+.g4 { grid-template-columns:repeat(4,1fr); }
+@media (max-width:820px){ .g3,.g2{ grid-template-columns:1fr; } .g4{ grid-template-columns:repeat(2,1fr); } }
+.mini { padding:.85rem 1rem; }
+.mini .label { font-size:.66rem; }
+.mini .value { font-size:1.45rem; margin-top:.1rem; }
+.mini .sub { font-size:.72rem; }
+.value .dim { color:#475569; font-size:1rem; font-weight:600; }
+.scell .label { color:#94a3b8; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; font-weight:600; }
+.scell .sval { font-size:1.7rem; font-weight:800; color:#f1f5f9; margin-top:.15rem; letter-spacing:-.02em; }
+.scell .sval.grad { background:%ACCENT%; -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.presence { display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .95rem;
+  border-radius:999px; font-weight:700; font-size:.85rem; margin-top:.7rem; }
+.presence.occ { color:#6ee7b7; background:rgba(52,211,153,.12); border:1px solid rgba(52,211,153,.35); }
+.presence.emp { color:#94a3b8; background:rgba(148,163,184,.1); border:1px solid rgba(148,163,184,.25); }
 
 .card {
   background:rgba(255,255,255,0.035);
@@ -246,6 +259,82 @@ def _prediction_html(pred, true_label, proba):
     )
 
 
+def _mini_stats_html(idx, n, elapsed, acc, conf):
+    rate = idx / elapsed if elapsed > 0 else 0.0
+    acc_txt = f"{acc * 100:.0f}%" if acc is not None else "—"
+    conf_txt = f"{conf * 100:.0f}%" if conf is not None else "—"
+    return f"""
+    <div class="grid g4">
+      <div class="card mini stat"><div class="label">Window</div>
+        <div class="value">{idx}<span class="dim">/{n}</span></div></div>
+      <div class="card mini stat"><div class="label">Elapsed</div>
+        <div class="value">{elapsed:.1f}<span class="dim">s</span></div>
+        <div class="sub">{rate:.0f} win/s</div></div>
+      <div class="card mini stat"><div class="label">Live accuracy</div>
+        <div class="value grad">{acc_txt}</div></div>
+      <div class="card mini stat"><div class="label">Avg confidence</div>
+        <div class="value">{conf_txt}</div></div>
+    </div>"""
+
+
+def _meter_html(pct):
+    return f"""
+    <div class="card" style="padding:1rem 1.2rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:.55rem">
+        <span class="cls">⚡ Motion energy</span><span class="pct">{pct:.0f}%</span></div>
+      <div class="track" style="height:12px"><div class="fill" style="width:{pct:.0f}%"></div></div>
+    </div>"""
+
+
+def _presence_html(pred):
+    if pred is None:
+        return ""
+    if pred != "empty":
+        return ('<div class="presence occ"><span class="pulse"></span>'
+                ' Occupied · Tier 1</div>')
+    return '<div class="presence emp">○ Empty · Tier 1</div>'
+
+
+def _summary_html(n, acc, conf, elapsed, confused):
+    conf_line = (f'<div class="scell"><div class="label">Most confused with</div>'
+                 f'<div class="sval" style="text-transform:capitalize">{confused}</div></div>'
+                 if confused else "")
+    return f"""
+    <div class="card" style="border-color:rgba(129,140,248,.4);
+         box-shadow:0 16px 50px -20px rgba(129,140,248,.5)">
+      <div class="sect" style="margin:0 0 1rem 0">✦ Replay summary</div>
+      <div class="grid g4">
+        <div class="scell"><div class="label">Windows</div><div class="sval">{n}</div></div>
+        <div class="scell"><div class="label">Accuracy</div>
+          <div class="sval grad">{acc * 100:.0f}%</div></div>
+        <div class="scell"><div class="label">Avg confidence</div>
+          <div class="sval">{conf * 100:.0f}%</div></div>
+        <div class="scell"><div class="label">Duration</div><div class="sval">{elapsed:.1f}s</div></div>
+      </div>
+      {('<div style="margin-top:1rem">' + conf_line + '</div>') if conf_line else ''}
+    </div>"""
+
+
+def _build_windows(replay, mode, W):
+    """Return a flat list of (window, true_label) plus per-window motion energy."""
+    amp_cols = [c for c in replay.columns if c.startswith("sc")]
+    present = [c for c in config.CLASSES if c in replay["label"].unique()]
+    order = present if mode == "__all__" else [mode]
+    windows, labels = [], []
+    for cls in order:
+        a = replay[replay["label"] == cls][amp_cols].to_numpy(dtype=np.float32)
+        for i in range(0, max(1, len(a) - W), W // 2):
+            win = a[i:i + W]
+            if win.shape[0] < W:
+                break
+            windows.append(win)
+            labels.append(cls)
+    if not windows:
+        return [], [], np.array([])
+    motion = np.array([np.abs(np.diff(w, axis=0)).mean() for w in windows])
+    return windows, labels, motion
+
+
 model, scaler = load_model()
 replay = load_replay()
 metrics = load_metrics()
@@ -328,50 +417,88 @@ with tab_live:
     if replay is None:
         st.info("Run `python -m src.generate_synthetic` to create the replay stream.")
     else:
-        classes = replay["label"].unique().tolist()
+        present = [c for c in config.CLASSES if c in replay["label"].unique()]
+        label_map = {f"{CLASS_META.get(c, ('📶',))[0]}  {c.capitalize()}": c
+                     for c in present}
+        options = ["🎬  All classes (demo)"] + list(label_map.keys())
+
         c1, c2 = st.columns([2, 1])
         with c1:
-            pick = st.selectbox("Held-out class to replay", classes,
-                                index=min(3, len(classes) - 1))
+            choice = st.selectbox("Stream to replay", options,
+                                  index=min(4, len(options) - 1))
         with c2:
-            speed = st.slider("Playback speed", 1, 20, 10)
+            speed = st.slider("Playback speed", 1, 30, 12)
+        mode = "__all__" if choice.startswith("🎬") else label_map[choice]
 
-        seg = replay[replay["label"] == pick].reset_index(drop=True)
-        amp_cols = [c for c in seg.columns if c.startswith("sc")]
-        amp = seg[amp_cols].to_numpy(dtype=np.float32)
+        W = config.WINDOW_SIZE
+        windows, labels, motion = _build_windows(replay, mode, W)
+        max_motion = float(motion.max()) if motion.size else 1.0
+        n = len(windows)
 
         play = st.button("▶  Play stream", width="stretch")
 
+        stats_ph = st.empty()
         left, right = st.columns([3, 2])
         heat = left.empty()
-        pred_box = right.empty()
+        motion_ph = left.empty()
+        pred_ph = right.empty()
+        presence_ph = right.empty()
+        st.markdown('<div class="sect" style="font-size:.95rem;margin:1.1rem 0 .2rem">'
+                    'Confidence over time</div>', unsafe_allow_html=True)
+        chart_ph = st.empty()
         prog = st.progress(0.0)
-        W = config.WINDOW_SIZE
+        summary_ph = st.empty()
 
-        # idle preview so the panel is never empty
-        if amp.shape[0] >= W:
-            heat.image(_heatmap(amp[:W].T),
-                       caption="CSI amplitude  (subcarrier × time)",
-                       width="stretch")
-        if model is not None and amp.shape[0] >= W:
-            p0, pr0 = predict_window(model, scaler, amp[:W])
-            pred_box.markdown(_prediction_html(p0, pick, pr0), unsafe_allow_html=True)
+        # idle preview so nothing is ever blank
+        if windows:
+            heat.image(_heatmap(windows[0].T),
+                       caption="CSI amplitude  (subcarrier × time)", width="stretch")
+            motion_ph.markdown(_meter_html(100 * motion[0] / max_motion),
+                               unsafe_allow_html=True)
+            if model is not None:
+                p0, pr0 = predict_window(model, scaler, windows[0])
+                pred_ph.markdown(_prediction_html(p0, labels[0], pr0), unsafe_allow_html=True)
+                presence_ph.markdown(_presence_html(p0), unsafe_allow_html=True)
+            stats_ph.markdown(_mini_stats_html(0, n, 0.0, None, None),
+                              unsafe_allow_html=True)
+        else:
+            st.info("No windows available for this selection.")
 
-        if play:
-            for i in range(0, max(1, len(amp) - W), W // 2):
-                win = amp[i:i + W]
-                if win.shape[0] < W:
-                    break
+        if play and windows:
+            t0 = time.time()
+            correct, conf_sum = 0, 0.0
+            conf_hist, wrong = [], {}
+            for k, (win, true_label) in enumerate(zip(windows, labels), start=1):
                 heat.image(_heatmap(win.T),
-                           caption="CSI amplitude  (subcarrier × time)",
-                           width="stretch")
+                           caption=f"CSI amplitude  ·  true: {true_label}", width="stretch")
+                motion_ph.markdown(_meter_html(100 * motion[k - 1] / max_motion),
+                                   unsafe_allow_html=True)
+                acc = conf = None
                 if model is not None:
                     pred, proba = predict_window(model, scaler, win)
-                    pred_box.markdown(_prediction_html(pred, pick, proba),
-                                      unsafe_allow_html=True)
-                prog.progress(min(1.0, i / max(1, len(amp) - W)))
+                    pred_ph.markdown(_prediction_html(pred, true_label, proba),
+                                     unsafe_allow_html=True)
+                    presence_ph.markdown(_presence_html(pred), unsafe_allow_html=True)
+                    if pred == true_label:
+                        correct += 1
+                    else:
+                        wrong[pred] = wrong.get(pred, 0) + 1
+                    top = float(np.max(proba)) if proba is not None else 0.0
+                    conf_sum += top
+                    conf_hist.append(top)
+                    acc, conf = correct / k, conf_sum / k
+                    chart_ph.line_chart(pd.DataFrame({"confidence": conf_hist}),
+                                        height=180, color="#818cf8")
+                stats_ph.markdown(_mini_stats_html(k, n, time.time() - t0, acc, conf),
+                                  unsafe_allow_html=True)
+                prog.progress(k / n)
                 time.sleep(1.0 / speed)
             prog.progress(1.0)
+            if model is not None:
+                confused = max(wrong, key=wrong.get) if wrong else None
+                summary_ph.markdown(
+                    _summary_html(n, correct / n, conf_sum / n, time.time() - t0, confused),
+                    unsafe_allow_html=True)
             st.success("Replay complete.")
 
 # --------------------------------------------------------------------------- #
