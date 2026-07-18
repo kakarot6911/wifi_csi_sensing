@@ -216,9 +216,16 @@ def _heatmap(arr: np.ndarray):
 
 
 def predict_window(model, scaler, amp_window):
-    amp = preprocess.standardise(amp_window)
-    amp = preprocess.csi_parser.select_subcarriers(amp) \
-        if amp.shape[1] == config.NUM_SUBCARRIERS else amp
+    # Mirror the TRAINING pipeline (src/train._windows_from_stream): denoise
+    # — Hampel + low-pass + drop null subcarriers — BEFORE standardising.
+    # Skipping the denoise is a train/serve skew: the scaler & model were fit
+    # on denoised features, so raw features fall out-of-distribution and
+    # predictions collapse to near-random (0.14 acc vs 0.74 with denoise).
+    if amp_window.shape[1] == config.NUM_SUBCARRIERS:
+        amp = preprocess.denoise_amplitude(amp_window)          # 64 → 52, filtered
+    else:
+        amp = preprocess.lowpass(preprocess.hampel(amp_window))  # already selected
+    amp = preprocess.standardise(amp)
     f = features.window_features(amp)[None, :]
     Xs = scaler.transform(f)
     if hasattr(model, "predict_proba"):
